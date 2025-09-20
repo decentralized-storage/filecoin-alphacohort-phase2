@@ -67,6 +67,12 @@ jspm_packages/
 .env.test.local
 .env.production.local
 
+# test files
+test_file_new.txt
+wave2submission.md
+wave3and4goals.md
+test_file_new_encrypted.txt
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache

@@ -203,7 +203,7 @@ Edit `.env` to customize:
 ### Encryption Configuration (Required for --encrypt option)
 - `REGISTRY_CONTRACT_ADDRESS`: Smart contract address for permission registry
 - `VALIDATION_CONTRACT_ADDRESS`: Contract address for permission validation  
-- `BUNDLER_RPC_URL`: ZeroDev bundler RPC URL for account abstraction
+- `BUNDLER_RPC_URL`: Account abstraction bundler RPC URL for account abstraction. We used Zerodev (https://docs.zerodev.app/sdk/infra/intro) but it works with any AA bundler like Pimlico, Coinbase, etc.
 
 ## Project Structure
 
