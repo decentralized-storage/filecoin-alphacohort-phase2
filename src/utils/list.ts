@@ -134,17 +134,6 @@ export async function list(
   
     // Helper function to extract metadata fields
     const extractMetadata = (fileMetadata: any) => {
-        // If metadata is in userMetaData, use that
-        /*if (fileMetadata.userMetaData) {
-            return {
-                name: fileMetadata.userMetaData.name,
-                type: fileMetadata.userMetaData.type,
-                mimeType: fileMetadata.userMetaData.mimeType,
-                subtype: fileMetadata.userMetaData.subtype,
-                userMetaData: JSON.stringify(fileMetadata.userMetaData)
-            };
-        }*/
-        // Otherwise use the root fields
         // Check for pieceCID in filecoinStorageInfo (with both cases)
         const pieceCid = fileMetadata.filecoinStorageInfo?.pieceCID || 
                         fileMetadata.filecoinStorageInfo?.pieceCid ||
@@ -157,7 +146,8 @@ export async function list(
             mimeType: fileMetadata.mimeType,
             subtype: fileMetadata.subtype,
             pieceCid: pieceCid,
-            userMetaData: fileMetadata.userMetaData ? JSON.stringify(fileMetadata.userMetaData) : undefined
+            accessType: fileMetadata.accessType, // Add accessType field
+            userMetaData: JSON.stringify(fileMetadata) // Store the complete metadata
         };
     };
   
