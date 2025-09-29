@@ -18,6 +18,8 @@
     "download": "tsx src/commands/download.ts",
     "balance": "tsx src/commands/balance.ts",
     "deposit": "tsx src/commands/deposit.ts",
+    "make-public": "tsx src/commands/make-public.ts",
+    "make-private": "tsx src/commands/make-private.ts",
     "clean": "rimraf dist"
   },
   "dependencies": {

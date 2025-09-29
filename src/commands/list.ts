@@ -63,7 +63,7 @@ program
       
       // Display private files
       if (privateFiles.length > 0) {
-        console.log(chalk.magenta('🔒 Private Files (NFT required):'));
+        console.log(chalk.magenta('🔒 Private Files:'));
         displayFiles(privateFiles, options.detailed || false);
         console.log('');
       }
