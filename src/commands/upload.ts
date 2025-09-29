@@ -113,22 +113,30 @@ program
         uint8ArrayBytes = new TextEncoder().encode(data);
       }
 
-      // Check datasets
-      spinner.start('Checking datasets...');
-      const datasets = await synapse.storage.findDataSets(address);
-      const hasDataset = datasets.length > 0;
-      spinner.succeed(hasDataset ? 'Dataset found' : 'No dataset found (will create)');
-
       // Check payment if not skipped
       if (!options.skipPaymentCheck) {
+        // Check datasets first to determine if we need dataset creation fee
+        spinner.start('Checking datasets...');
+        const datasets = await synapse.storage.findDataSets(address);
+        const hasDataset = datasets.length > 0;
+        spinner.succeed(hasDataset ? 'Dataset found' : 'No dataset found (will create)');
         spinner.start('Checking USDFC balance...');
         const balance = await synapse.payments.walletBalance(TOKENS.USDFC);
         const balanceFormatted = formatUSDFC(balance);
         
-        if (balanceFormatted < BALANCE_THRESHOLDS.UPLOAD_MIN_BALANCE) {
-          throw createPaymentError(`Insufficient USDFC balance: ${balanceFormatted} USDFC`, {
-            userMessage: `Insufficient USDFC balance: ${balanceFormatted} USDFC\n${chalk.yellow('Please fund your wallet with USDFC:')}\n${chalk.yellow('Faucet: https://forest-explorer.chainsafe.dev/faucet/calibnet_usdfc')}`,
-            details: { balance: balanceFormatted, required: 1 }
+        // Calculate minimum balance needed including potential dataset creation fee
+        const minimumBalance = hasDataset ? 
+          BALANCE_THRESHOLDS.UPLOAD_MIN_BALANCE : 
+          BALANCE_THRESHOLDS.UPLOAD_MIN_BALANCE + formatUSDFC(TOKEN_AMOUNTS.DATA_SET_CREATION_FEE);
+        
+        if (balanceFormatted < minimumBalance) {
+          const errorMessage = hasDataset ? 
+            `Insufficient USDFC balance: ${balanceFormatted} USDFC` :
+            `Insufficient USDFC balance for new dataset: ${balanceFormatted} USDFC (needs ${minimumBalance} USDFC for dataset creation fee)`;
+          
+          throw createPaymentError(errorMessage, {
+            userMessage: `${errorMessage}\n${chalk.yellow('Please fund your wallet with USDFC:')}\n${chalk.yellow('Faucet: https://forest-explorer.chainsafe.dev/faucet/calibnet_usdfc')}`,
+            details: { balance: balanceFormatted, required: minimumBalance, hasDataset }
           });
         }
         spinner.succeed(`USDFC balance: ${balanceFormatted} USDFC`);
@@ -149,13 +157,49 @@ program
         }
 
         const synapseBalance = await synapse.payments.balance(TOKENS.USDFC);
-        if (synapseBalance < TOKEN_AMOUNTS.MIN_SYNAPSE_BALANCE) {
+        const minimumSynapseBalance = hasDataset ? 
+          TOKEN_AMOUNTS.MIN_SYNAPSE_BALANCE : 
+          TOKEN_AMOUNTS.MIN_SYNAPSE_BALANCE + TOKEN_AMOUNTS.DATA_SET_CREATION_FEE;
+          
+        if (synapseBalance < minimumSynapseBalance) {
           spinner.text = 'Depositing USDFC to Synapse...';
-          const depositAmount = TOKEN_AMOUNTS.DEFAULT_DEPOSIT;
+          const depositAmount = hasDataset ? 
+            TOKEN_AMOUNTS.DEFAULT_DEPOSIT : 
+            TOKEN_AMOUNTS.DEFAULT_DEPOSIT + TOKEN_AMOUNTS.DATA_SET_CREATION_FEE;
           const depositTx = await synapse.payments.deposit(depositAmount, TOKENS.USDFC);
           await depositTx.wait();
         }
+
+        // If no dataset exists, ensure proper warm storage service approval for dataset creation
+        if (!hasDataset) {
+          spinner.text = 'Setting up storage service for new dataset...';
+          const { WarmStorageService } = await import('@filoz/synapse-sdk/warm-storage');
+          const warmStorageService = await WarmStorageService.create(
+            synapse.getProvider(),
+            synapse.getWarmStorageAddress()
+          );
+          
+          // Calculate required allowances for dataset creation  
+          const storageCapacityBytes = config.storageCapacity * 1024 * 1024 * 1024; // Convert GB to bytes
+          const epochRate = BigInt(storageCapacityBytes) / TOKEN_AMOUNTS.RATE_DIVISOR;
+          const lockupAmount = epochRate * TIME_CONSTANTS.EPOCHS_PER_DAY * BigInt(config.persistencePeriod);
+          const lockupAmountWithFee = lockupAmount + TOKEN_AMOUNTS.DATA_SET_CREATION_FEE;
+          
+          const approveTx = await synapse.payments.approveService(
+            synapse.getWarmStorageAddress(),
+            epochRate,
+            lockupAmountWithFee,
+            TIME_CONSTANTS.EPOCHS_PER_DAY * BigInt(config.persistencePeriod)
+          );
+          await approveTx.wait();
+        }
         spinner.succeed('Payment validated');
+      } else {
+        // Still need to check datasets for the storage service
+        spinner.start('Checking datasets...');
+        const datasets = await synapse.storage.findDataSets(address);
+        const hasDataset = datasets.length > 0;
+        spinner.succeed(hasDataset ? 'Dataset found' : 'No dataset found (will create)');
       }
 
       // Create storage service

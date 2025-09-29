@@ -7,6 +7,7 @@ import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage';
 import { PDPServer } from '@filoz/synapse-sdk';
 import { errorHandler } from '../utils/errorHandler.js';
 import { timestampToMs, bytesToMB, EXIT_CODES } from '../constants.js';
+import { list as listEncryptedFiles } from '../utils/list.js';
 
 const program = new Command();
 
@@ -48,6 +49,23 @@ program
 
       spinner.succeed(`Found ${datasets.length} dataset(s)`);
       
+      // Fetch encrypted files data from Keypo.io to determine encryption status
+      spinner.start('Fetching encryption metadata...');
+      let encryptedFilesMap: Record<string, any> = {};
+      try {
+        const encryptedFiles = await listEncryptedFiles(address, false);
+        // Create a map of pieceCID to file data for quick lookup
+        Object.values(encryptedFiles).forEach((file: any) => {
+          if (file.dataMetadata?.pieceCid) {
+            // Store by pieceCID for matching with Filecoin data
+            encryptedFilesMap[file.dataMetadata.pieceCid.toLowerCase()] = file;
+          }
+        });
+        spinner.succeed(`Found ${Object.keys(encryptedFilesMap).length} files with encryption metadata`);
+      } catch (error) {
+        spinner.warn('Could not fetch encryption metadata');
+      }
+      
       console.log(chalk.cyan('\n📦 Your Datasets:\n'));
       
       // Get provider information for detailed view
@@ -58,6 +76,8 @@ program
       }, {});
 
       let totalPieces = 0;
+      let totalEncrypted = 0;
+      let totalUnencrypted = 0;
       
       for (const dataset of datasets) {
         const datasetId = (dataset as any).id || (dataset as any).pdpVerifierDataSetId || 'Unknown';
@@ -107,9 +127,31 @@ program
                   const sizeVal = (piece as any).size;
                   const sizeInfo = sizeVal ? `${bytesToMB(Number(sizeVal))} MB` : 'Size unknown';
                   
-                  console.log(chalk.white(`    Piece #${piece.pieceId}`));
+                  // Check if this piece is encrypted
+                  const encryptedFileData = encryptedFilesMap[pieceCid.toLowerCase()];
+                  const isEncrypted = !!encryptedFileData;
+                  const encryptionStatus = isEncrypted ? '🔐 Encrypted' : '📄 Unencrypted';
+                  const encryptionColor = isEncrypted ? chalk.yellow : chalk.green;
+                  
+                  if (isEncrypted) {
+                    totalEncrypted++;
+                  } else {
+                    totalUnencrypted++;
+                  }
+                  
+                  console.log(chalk.white(`    Piece #${piece.pieceId} ${encryptionColor(encryptionStatus)}`));
                   console.log(chalk.gray(`      ${pieceCid}`));
                   console.log(chalk.gray(`      Size: ${sizeInfo}`));
+                  
+                  // Show additional encryption details if available
+                  if (isEncrypted && encryptedFileData) {
+                    if (encryptedFileData.dataMetadata?.name) {
+                      console.log(chalk.gray(`      Name: ${encryptedFileData.dataMetadata.name}`));
+                    }
+                    if (encryptedFileData.isAccessMinted) {
+                      console.log(chalk.gray(`      Access NFT: Minted ✓`));
+                    }
+                  }
                 }
               } else {
                 console.log(chalk.gray('  No files in this dataset'));
@@ -139,8 +181,12 @@ program
       console.log(chalk.white(`  Total Datasets: ${datasets.length}`));
       if (options.detailed) {
         console.log(chalk.white(`  Total Files: ${totalPieces}`));
+        if (totalPieces > 0) {
+          console.log(chalk.yellow(`    🔐 Encrypted: ${totalEncrypted}`));
+          console.log(chalk.green(`    📄 Unencrypted: ${totalUnencrypted}`));
+        }
       } else {
-        console.log(chalk.gray('  Use --detailed to see file count'));
+        console.log(chalk.gray('  Use --detailed to see file count and encryption status'));
       }
       
       // Exit successfully
