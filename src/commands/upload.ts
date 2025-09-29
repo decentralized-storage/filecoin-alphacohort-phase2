@@ -17,6 +17,7 @@ const program = new Command();
 interface UploadOptions {
   skipPaymentCheck?: boolean;
   encrypt?: boolean;
+  public?: boolean;
 }
 
 program
@@ -25,11 +26,17 @@ program
   .argument('<file>', 'Path to the file to upload')
   .option('--skip-payment-check', 'Skip payment validation (use if already funded)')
   .option('--encrypt', 'Encrypt the file before uploading using Lit Protocol')
+  .option('--public', 'Make encrypted file publicly accessible (requires --encrypt)')
   .action(async (filePath: string, options: UploadOptions) => {
     const spinner = ora();
     errorHandler.setContext({ spinner, debug: process.env.DEBUG === 'true' });
     
     try {
+      // Validate options
+      if (options.public && !options.encrypt) {
+        throw new Error('--public flag requires --encrypt flag. Public files must be encrypted.');
+      }
+
       // Check if file exists
       spinner.start('Checking file...');
       let stats;
@@ -254,23 +261,25 @@ program
       if (options.encrypt && smartContractData && dataIdentifier) {
         spinner.start('Deploying permission contracts...');
         try {
-          // Create enhanced metadata that includes the piece CID
+          // Create enhanced metadata that includes the piece CID and access type
           const metadataWithPieceCid = {
             ...metadataOut,
             filecoinStorageInfo: {
               pieceCid: pieceCid.toV1().toString(),
               uploadTimestamp: new Date().toISOString(),
               datasetCreated: datasetCreated
-            }
+            },
+            accessType: options.public ? 'public' : 'private'
           };
 
           await deployPermissionsAndMintNFT(
             dataIdentifier, // Use the correct data identifier from the encrypted payload
-            metadataWithPieceCid, // Pass enhanced metadata with piece CID
+            metadataWithPieceCid, // Pass enhanced metadata with piece CID and access type
             smartContractData.kernelClient,
             smartContractData.userAddress,
             smartContractData.registryContractAddress,
-            smartContractData.validationContractAddress
+            smartContractData.validationContractAddress,
+            options.public // Pass public flag to control NFT minting and token quantity
           );
           spinner.succeed('Smart contracts deployed!');
         } catch (contractError) {
@@ -288,6 +297,7 @@ program
       console.log(chalk.cyan('💾 Dataset Created:'), datasetCreated ? 'Yes' : 'No (existing used)');
       console.log(chalk.cyan('🔐 Encrypted:'), options.encrypt ? 'Yes' : 'No');
       if (options.encrypt) {
+        console.log(chalk.cyan('👥 Access Type:'), options.public ? 'Public (anyone can decrypt)' : 'Private (NFT required)');
         console.log(chalk.cyan('📋 Data Identifier:'), dataIdentifier || 'N/A');
         console.log(chalk.cyan('⛓️  Smart Contracts:'), smartContractData ? 'Deployed with Piece CID metadata' : 'Not deployed');
       }
