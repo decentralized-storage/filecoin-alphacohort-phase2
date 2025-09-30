@@ -1,10 +1,10 @@
 import { DataMetadata, TypedArray, BrowserFile, BrowserBlob } from './types.js';
 import { createLitClient } from "@lit-protocol/lit-client";
-import { createAccBuilder } from '@lit-protocol/access-control-conditions';
+import { encodeFunctionData } from 'viem';
 import { nagaDev } from "@lit-protocol/networks";
 import { createAuthManager, storagePlugins } from "@lit-protocol/auth";
 import { privateKeyToAccount } from 'viem/accounts';
-import { createWalletClient, http } from 'viem';
+import { createWalletClient, http, Client, Transport, Chain, Account } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import { getKernelClient } from './getKernelClient.js';
 import { 
@@ -443,4 +443,48 @@ export async function decrypt(userAccount: any, encryptedDataPayload: any) {
     console.log('✅ Decryption successful!');
     
     return {decryptedData: decryptedResponse.decryptedData, metadata: encryptedDataPayload.metadata};
+}
+
+export async function share(
+  dataIdentifier: string,
+  walletClient: Client<Transport, Chain, Account>,
+  recipientAddresses: string[],
+  permissionsRegistryContractAddress: string,
+  bundlerRpcUrl: string,
+  authorization: any,
+  debug?: boolean
+) {
+
+  const kernelClient = await getKernelClient(
+      walletClient,
+      baseSepolia,
+      bundlerRpcUrl,
+      authorization,
+      debug
+  );
+
+  const tx = await kernelClient.sendUserOperation({
+      callData: await kernelClient.account.encodeCalls([{
+          to: permissionsRegistryContractAddress as `0x${string}`,
+          data: encodeFunctionData({
+              abi: PermissionsRegistryAbi,
+              functionName: "mintFromPermissionedFileForOwner",
+              args: [dataIdentifier, recipientAddresses]
+          }),
+      }]),
+  });
+
+  if (debug) {
+      console.log("[DEBUG] tx:", tx);
+  }
+
+  const { receipt } = await kernelClient.waitForUserOperationReceipt({
+      hash: tx,
+  });
+
+  if (debug) {
+      console.log("[DEBUG] receipt:", receipt);
+  }
+
+  return receipt;
 }

@@ -20,6 +20,7 @@
     "deposit": "tsx src/commands/deposit.ts",
     "make-public": "tsx src/commands/make-public.ts",
     "make-private": "tsx src/commands/make-private.ts",
+    "share": "tsx src/commands/share.ts",
     "clean": "rimraf dist"
   },
   "dependencies": {
