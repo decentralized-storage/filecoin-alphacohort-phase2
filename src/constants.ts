@@ -51,6 +51,8 @@ export const TOKEN_AMOUNTS = {
   UPLOAD_MIN_BALANCE: 1,
   /** Rate calculation divisor for storage pricing */
   RATE_DIVISOR: 1000n,
+  /** Dataset creation fee (0.1 USDFC in wei) */
+  DATA_SET_CREATION_FEE: BigInt(0.1 * 10 ** 18),
 } as const;
 
 export const BALANCE_THRESHOLDS = {

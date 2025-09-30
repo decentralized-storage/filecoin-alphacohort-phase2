@@ -49,6 +49,18 @@ program
     await import('./commands/deposit.js');
   });
 
+program
+  .command('list-encrypted')
+  .description('List encrypted files with Filecoin storage from Keypo.io')
+  .option('-d, --debug', 'Enable debug output')
+  .option('--api-url <url>', 'Custom API URL')
+  .option('--filter-field <field>', 'Field to filter by')
+  .option('--filter-value <value>', 'Value to filter for')
+  .option('--sort-field <field>', 'Field to sort by')
+  .action(async () => {
+    await import('./commands/list-encrypted.js');
+  });
+
 // Add help text
 program.addHelpText('after', `
 Examples:
@@ -56,6 +68,7 @@ Examples:
   $ synapse-cli deposit --amount 5         Deposit 5 USDFC
   $ synapse-cli upload ./myfile.pdf        Upload a file
   $ synapse-cli list --detailed            List files with details
+  $ synapse-cli list-encrypted             List encrypted files with pieceCid
   $ synapse-cli download baga6ea4seaq...   Download by CID
 
 For more information, see the README.md file.

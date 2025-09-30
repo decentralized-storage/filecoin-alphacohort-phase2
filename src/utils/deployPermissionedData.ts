@@ -1,6 +1,14 @@
 import { type ContractInterface } from "ethers";
 import { encodeFunctionData } from "viem";
 
+export interface PermissionParameters {
+  permissionType: number;
+  permissionAddress: string;
+  tokenQuantity: number;
+  timeLimitBlockNumber: number;
+  operator: number;
+}
+
 /**
  *  Deploy file and write permissions to the PermissionsRegistry
  */
@@ -12,9 +20,10 @@ export const deployPermissionedData = async (
   contractAddress: string,
   validatorAddress: string,
   abi: ContractInterface,
+  customParameters?: PermissionParameters[],
   debug?: boolean,
 ) => {
-  const parameters = [
+  const parameters = customParameters || [
     {
       permissionType: 0,
       permissionAddress: signerAddress,

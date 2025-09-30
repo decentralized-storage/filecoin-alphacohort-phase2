@@ -12,7 +12,7 @@ import {
   KERNEL_V3_3 
 } from "@zerodev/sdk/constants";
 import { generateRandomDataIdentifier } from './generateRandomIdentifier.js';
-import { deployPermissionedData } from './deployPermissionedData.js';
+import { deployPermissionedData, PermissionParameters } from './deployPermissionedData.js';
 import { mintOwnerNFT } from './mintOwnerNFT.js';
 import { PermissionsRegistryAbi } from './contracts.js';
 import { AUTH_EXPIRATION, LIT_PROTOCOL } from '../constants.js';
@@ -338,11 +338,21 @@ export async function deployPermissionsAndMintNFT(
   kernelClient: any,
   userAddress: string,
   registryContractAddress: string,
-  validationContractAddress: string
+  validationContractAddress: string,
+  isPublic: boolean = false
 ) {
   try {
+    // Create custom parameters based on public/private access
+    const customParameters: PermissionParameters[] = [{
+      permissionType: 0,
+      permissionAddress: userAddress,
+      tokenQuantity: isPublic ? 0 : 1, // 0 for public (anyone can access), 1 for private (NFT required)
+      timeLimitBlockNumber: 0,
+      operator: 0,
+    }];
+
     // Deploy the permissioned data
-    console.log('🚀 Deploying permission contract...');
+    console.log(`🚀 Deploying ${isPublic ? 'public' : 'private'} permission contract...`);
     await deployPermissionedData(
       dataIdentifier,
       JSON.stringify(metadata),
@@ -351,20 +361,25 @@ export async function deployPermissionsAndMintNFT(
       registryContractAddress,
       validationContractAddress,
       PermissionsRegistryAbi as any,
+      customParameters,
       true
     );
     console.log('✅ Permission contract deployed');
 
-    // Mint the owner NFT
-    console.log('🎫 Minting owner NFT...');
-    await mintOwnerNFT(
-      kernelClient,
-      registryContractAddress,
-      dataIdentifier,
-      PermissionsRegistryAbi as any,
-      true
-    );
-    console.log('✅ Owner NFT minted');
+    // Only mint NFT for private files
+    if (!isPublic) {
+      console.log('🎫 Minting owner NFT...');
+      await mintOwnerNFT(
+        kernelClient,
+        registryContractAddress,
+        dataIdentifier,
+        PermissionsRegistryAbi as any,
+        true
+      );
+      console.log('✅ Owner NFT minted');
+    } else {
+      console.log('📢 Public file - no NFT needed (anyone can decrypt)');
+    }
   } catch (error) {
     console.error('❌ Smart contract operation failed:', error);
     throw error; // Re-throw so caller can handle appropriately

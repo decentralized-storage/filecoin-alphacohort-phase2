@@ -8,7 +8,7 @@ import { TOKENS, TIME_CONSTANTS } from '@filoz/synapse-sdk';
 import { ethers } from 'ethers';
 import { config } from '../config.js';
 import { errorHandler, createPaymentError } from '../utils/errorHandler.js';
-import { formatUSDFC, parseUSDFC, storageCapacityToBytes, TOKEN_AMOUNTS, EXIT_CODES } from '../constants.js';
+import { formatUSDFC, parseUSDFC, storageCapacityToBytes, TOKEN_AMOUNTS, EXIT_CODES, TOKEN_DECIMALS } from '../constants.js';
 
 const program = new Command();
 
@@ -107,10 +107,13 @@ program
       const epochRate = storageCapacityBytes / TOKEN_AMOUNTS.RATE_DIVISOR;
       const lockupAmount = epochRate * TIME_CONSTANTS.EPOCHS_PER_DAY * BigInt(config.persistencePeriod);
       
+      // Add dataset creation fee to lockup amount for new datasets
+      const lockupAmountWithFee = lockupAmount + TOKEN_AMOUNTS.DATA_SET_CREATION_FEE;
+      
       const approveTx = await synapse.payments.approveService(
         synapse.getWarmStorageAddress(),
         epochRate,
-        lockupAmount,
+        lockupAmountWithFee,
         TIME_CONSTANTS.EPOCHS_PER_DAY * BigInt(config.persistencePeriod)
       );
       
