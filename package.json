@@ -21,6 +21,7 @@
     "make-public": "tsx src/commands/make-public.ts",
     "make-private": "tsx src/commands/make-private.ts",
     "share": "tsx src/commands/share.ts",
+    "delete": "tsx src/commands/delete.ts",
     "clean": "rimraf dist"
   },
   "dependencies": {

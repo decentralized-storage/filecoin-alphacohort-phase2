@@ -16,6 +16,7 @@ import { deployPermissionedData, PermissionParameters } from './deployPermission
 import { mintOwnerNFT } from './mintOwnerNFT.js';
 import { PermissionsRegistryAbi } from './contracts.js';
 import { AUTH_EXPIRATION, LIT_PROTOCOL } from '../constants.js';
+import { config } from '../config.js';
 
 // Check if we're in a browser environment where File and Blob are available
 const isBrowser = typeof window !== 'undefined' && typeof File !== 'undefined' && typeof Blob !== 'undefined';
@@ -470,6 +471,49 @@ export async function share(
               abi: PermissionsRegistryAbi,
               functionName: "mintFromPermissionedFileForOwner",
               args: [dataIdentifier, recipientAddresses]
+          }),
+      }]),
+  });
+
+  if (debug) {
+      console.log("[DEBUG] tx:", tx);
+  }
+
+  const { receipt } = await kernelClient.waitForUserOperationReceipt({
+      hash: tx,
+  });
+
+  if (debug) {
+      console.log("[DEBUG] receipt:", receipt);
+  }
+
+  return receipt;
+}
+
+export async function deleteData(
+  dataIdentifier: string,
+  walletClient: Client<Transport, Chain, Account>,
+  authorization: any,
+  permissionsRegistryContractAddress: string,
+  bundlerRpcUrl: string,
+  debug?: boolean
+) {
+
+  const kernelClient = await getKernelClient(
+      walletClient,
+      baseSepolia,
+      bundlerRpcUrl,
+      authorization,
+      debug
+  );
+
+  const tx = await kernelClient.sendUserOperation({
+      callData: await kernelClient.account.encodeCalls([{
+          to: permissionsRegistryContractAddress as `0x${string}`,
+          data: encodeFunctionData({
+              abi: PermissionsRegistryAbi,
+              functionName: "deletePermissionedFile",
+              args: [dataIdentifier]
           }),
       }]),
   });
