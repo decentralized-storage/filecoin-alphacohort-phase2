@@ -57,14 +57,14 @@ program
       // Display public files
       if (publicFiles.length > 0) {
         console.log(chalk.blue('📢 Public Files (anyone can decrypt):'));
-        displayFiles(publicFiles, options.detailed || false);
+        displayFiles(publicFiles, options.detailed || false, address);
         console.log('');
       }
       
       // Display private files
       if (privateFiles.length > 0) {
         console.log(chalk.magenta('🔒 Private Files:'));
-        displayFiles(privateFiles, options.detailed || false);
+        displayFiles(privateFiles, options.detailed || false, address);
         console.log('');
       }
       
@@ -85,7 +85,7 @@ program
     }
   });
 
-function displayFiles(files: [string, any][], detailed: boolean) {
+function displayFiles(files: [string, any][], detailed: boolean, currentWallet: string) {
   for (const [dataIdentifier, file] of files) {
     const metadata = file.dataMetadata;
     const fileName = metadata?.name || 'Unknown';
@@ -105,7 +105,12 @@ function displayFiles(files: [string, any][], detailed: boolean) {
     
     if (detailed) {
       console.log(chalk.gray(`    Contract: ${file.dataContractAddress || 'Unknown'}`));
-      console.log(chalk.gray(`    Owner: ${file.owner || 'Unknown'}`));
+      // Check if owner is the current wallet and add (You) if so
+      const ownerAddress = file.owner || 'Unknown';
+      const ownerDisplay = ownerAddress.toLowerCase() === currentWallet.toLowerCase() 
+        ? `${ownerAddress} (You)` 
+        : ownerAddress;
+      console.log(chalk.gray(`    Owner: ${ownerDisplay}`));
       console.log(chalk.gray(`    Access NFT: ${file.isAccessMinted ? 'Minted ✓' : 'Not minted'}`));
       
       // Show additional metadata if available

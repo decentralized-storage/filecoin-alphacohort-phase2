@@ -16,26 +16,23 @@ const program = new Command();
 
 interface UploadOptions {
   skipPaymentCheck?: boolean;
-  encrypt?: boolean;
-  public?: boolean;
+  private?: boolean;
+  unencrypted?: boolean;
 }
 
 program
   .name('upload')
-  .description('Upload a file to Filecoin via Synapse')
+  .description('Upload a file to Filecoin via Synapse (encrypted by default with public access)')
   .argument('<file>', 'Path to the file to upload')
   .option('--skip-payment-check', 'Skip payment validation (use if already funded)')
-  .option('--encrypt', 'Encrypt the file before uploading using Lit Protocol')
-  .option('--public', 'Make encrypted file publicly accessible (requires --encrypt)')
+  .option('--private', 'Make file private (requires NFT for access)')
+  .option('--unencrypted', 'Upload file without encryption (raw data to Filecoin)')
   .action(async (filePath: string, options: UploadOptions) => {
     const spinner = ora();
     errorHandler.setContext({ spinner, debug: process.env.DEBUG === 'true' });
     
     try {
-      // Validate options
-      if (options.public && !options.encrypt) {
-        throw new Error('--public flag requires --encrypt flag. Public files must be encrypted.');
-      }
+      // No validation needed - new options are mutually exclusive
 
       // Check if file exists
       spinner.start('Checking file...');
@@ -72,7 +69,12 @@ program
       let smartContractData: any = null; // Store smart contract data for post-upload operations
       let dataIdentifier: string | null = null; // Store data identifier for smart contract operations
       
-      if (options.encrypt) {
+      // Default behavior: encrypt with public access
+      // Use --private for private encryption or --unencrypted for no encryption
+      const shouldEncrypt = !options.unencrypted;
+      const isPublic = !options.private && shouldEncrypt;
+      
+      if (shouldEncrypt) {
         // Validate Lit Protocol configuration
         validateLitConfig();
         
@@ -103,7 +105,7 @@ program
           
           const encryptedData = JSON.stringify(uploadPayload);
           uint8ArrayBytes = new TextEncoder().encode(encryptedData);
-          spinner.succeed('File encrypted');
+          spinner.succeed(`File encrypted (${isPublic ? 'public access' : 'private access'})`);
         } catch (encryptError) {
           throw createEncryptionError('Failed to encrypt file', {
             cause: encryptError,
@@ -258,7 +260,7 @@ program
       spinner.succeed('Upload complete!');
 
       // Deploy smart contracts after successful Filecoin upload (for encrypted files)
-      if (options.encrypt && smartContractData && dataIdentifier) {
+      if (shouldEncrypt && smartContractData && dataIdentifier) {
         spinner.start('Deploying permission contracts...');
         try {
           // Create enhanced metadata that includes the piece CID and access type
@@ -269,7 +271,7 @@ program
               uploadTimestamp: new Date().toISOString(),
               datasetCreated: datasetCreated
             },
-            accessType: options.public ? 'public' : 'private'
+            accessType: isPublic ? 'public' : 'private'
           };
 
           await deployPermissionsAndMintNFT(
@@ -279,7 +281,7 @@ program
             smartContractData.userAddress,
             smartContractData.registryContractAddress,
             smartContractData.validationContractAddress,
-            options.public // Pass public flag to control NFT minting and token quantity
+            isPublic // Pass public flag to control NFT minting and token quantity
           );
           spinner.succeed('Smart contracts deployed!');
         } catch (contractError) {
@@ -295,9 +297,9 @@ program
       console.log(chalk.cyan('📊 File Size:'), `${bytesToMB(fileSize)} MB`);
       console.log(chalk.cyan('🔗 Piece CID:'), pieceCid.toV1().toString());
       console.log(chalk.cyan('💾 Dataset Created:'), datasetCreated ? 'Yes' : 'No (existing used)');
-      console.log(chalk.cyan('🔐 Encrypted:'), options.encrypt ? 'Yes' : 'No');
-      if (options.encrypt) {
-        console.log(chalk.cyan('👥 Access Type:'), options.public ? 'Public (anyone can decrypt)' : 'Private (NFT required)');
+      console.log(chalk.cyan('🔐 Encrypted:'), shouldEncrypt ? 'Yes' : 'No');
+      if (shouldEncrypt) {
+        console.log(chalk.cyan('👥 Access Type:'), isPublic ? 'Public (anyone can decrypt)' : 'Private (NFT required)');
         console.log(chalk.cyan('📋 Data Identifier:'), dataIdentifier || 'N/A');
         console.log(chalk.cyan('⛓️  Smart Contracts:'), smartContractData ? 'Deployed with Piece CID metadata' : 'Not deployed');
       }

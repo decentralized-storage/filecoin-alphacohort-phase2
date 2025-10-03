@@ -4,7 +4,7 @@ A TypeScript Node.js command-line interface for uploading, viewing, and download
 
 ## Features
 
-- 📤 **Upload** files to Filecoin via Synapse with optional encryption
+- 📤 **Upload** files to Filecoin via Synapse (encrypted with public access by default)
 - 📋 **List** encrypted files from your wallet
 - 🌍 **List Public** files from all users that anyone can decrypt
 - 📥 **Download** files using their Piece CID with automatic decryption
@@ -13,7 +13,7 @@ A TypeScript Node.js command-line interface for uploading, viewing, and download
 - 🔒 **Make Private/Public** toggle file access permissions
 - 💰 **Check balances** (FIL and USDFC)
 - 💳 **Deposit** USDFC and manage storage allowances
-- 🔐 **End-to-End Encryption** with Lit Protocol v8 and smart contract access control
+- 🔐 **End-to-End Encryption** with Lit Protocol v8 (default for all uploads)
 - 🔥 Built with TypeScript for type safety
 
 ## Prerequisites
@@ -86,7 +86,7 @@ For development, you can run TypeScript files directly using tsx:
 
 ```bash
 # Development commands (no build required)
-npm run upload -- <file-path> [options]
+npm run upload -- <file-path> [options]  # Encrypts with public access by default
 npm run list -- [options]
 npm run download -- <piece-cid> [options]
 npm run balance
@@ -127,26 +127,24 @@ tsx src/commands/deposit.ts --approve-only
 ```
 
 ### Upload a File
-Upload a file to Filecoin with optional encryption:
+Upload a file to Filecoin (encrypted with public access by default):
 ```bash
-# Basic upload (unencrypted):
+# Basic upload (encrypted, public - anyone can decrypt):
 npm run upload -- ./myfile.pdf
 
-# Upload with encryption (private by default):
-npm run upload -- ./myfile.pdf --encrypt
-
-# Upload with encryption (public - anyone can decrypt):
-npm run upload -- ./myfile.pdf --encrypt --public
+# Upload with private encryption (NFT required for access):
+npm run upload -- ./myfile.pdf --private
 
 # Skip payment validation (if already funded):
 npm run upload -- ./myfile.pdf --skip-payment-check
 
 # Combined options:
-npm run upload -- ./myfile.pdf --encrypt --public --skip-payment-check
+npm run upload -- ./myfile.pdf --private --skip-payment-check
 
 # Direct commands:
 tsx src/commands/upload.ts ./myfile.pdf
-tsx src/commands/upload.ts ./myfile.pdf --encrypt --public
+tsx src/commands/upload.ts ./myfile.pdf --private
+tsx src/commands/upload.ts ./myfile.pdf --unencrypted
 ```
 
 ### List Files
@@ -220,22 +218,25 @@ tsx src/commands/delete.ts baga6ea4seaq...
 ```
 
 ### Encryption/Decryption Features
-The CLI supports end-to-end encryption using Lit Protocol v8 with smart contract-based access control:
+The CLI uses end-to-end encryption by default with Lit Protocol v8 and smart contract-based access control:
 
+- **Default Encryption**: All files are encrypted by default (public access unless specified)
 - **Smart Contract Access Control**: Uses on-chain permission registry for fine-grained access control
-- **Account Abstraction**: Integrates with ZeroDev for gasless transactions via account abstraction  
-- **Uploading with Encryption**: Add `--encrypt` flag to encrypt files before upload
-- **Automatic Permission Setup**: Deploys permission contracts and mints owner NFTs automatically
+- **Account Abstraction**: Integrates with ZeroDev for gasless transactions via account abstraction
+- **Flexible Access**: Choose between public (anyone can decrypt) or private (NFT-gated) encryption
+- **Automatic Permission Setup**: Deploys permission contracts and mints NFTs as needed
 - **Automatic Decryption**: Download command automatically detects and decrypts encrypted files
-- **Transparent Process**: Encryption status is shown in upload/download summaries
+- **Transparent Process**: Encryption status and access type shown in upload/download summaries
 
 **How it works:**
-1. When uploading with, the CLI encrypts your file using Lit Protocol. If you upload the file as public, the file is still encrypted but any wallet can decrypt it. 
-2. A smart contract is deployed to manage permissions for the encrypted file
-3. If the file is uploaded as "private", an NFT is minted to the file owner for access control
-4. The encrypted file is uploaded to Filecoin storage
-5. When downloading, the CLI automatically detects encrypted files and decrypts them
-6. Access is verified via the smart contract before decryption is allowed
+1. By default, the CLI encrypts your file using Lit Protocol with public access (anyone can decrypt)
+2. Use `--private` flag to require NFT ownership for decryption
+3. Use `--unencrypted` flag to upload raw data without encryption
+4. A smart contract is deployed to manage permissions for encrypted files
+5. For private files, an NFT is minted to the file owner for access control
+6. The encrypted file is uploaded to Filecoin storage
+7. When downloading, the CLI automatically detects encrypted files and decrypts them
+8. Access is verified via the smart contract before decryption is allowed
 
 ## Configuration
 
@@ -323,13 +324,6 @@ You can run your own local implementation of the Keypo API for enhanced privacy,
    npm run list -- --api-url http://localhost:3000
    npm run list-public -- --api-url http://localhost:3000
    ```
-
-**Benefits of Running Your Own API:**
-- Complete control over data indexing and querying
-- Custom filtering and search capabilities
-- Enhanced privacy - no external API dependencies
-- Ability to add custom endpoints for your specific needs
-- Direct integration with The Graph Protocol
 
 ### API Features
 The Keypo API provides several endpoints for querying encrypted files:
