@@ -15,6 +15,7 @@
     "upload": "tsx src/commands/upload.ts",
     "list": "tsx src/commands/list.ts",
     "list-encrypted": "tsx src/commands/list-encrypted.ts",
+    "list-public": "tsx src/commands/list-public.ts",
     "download": "tsx src/commands/download.ts",
     "balance": "tsx src/commands/balance.ts",
     "deposit": "tsx src/commands/deposit.ts",
