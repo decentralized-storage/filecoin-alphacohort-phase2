@@ -4,12 +4,16 @@ A TypeScript Node.js command-line interface for uploading, viewing, and download
 
 ## Features
 
-- 📤 **Upload** files to Filecoin via Synapse
-- 📋 **List** all uploaded files in your datasets
-- 📥 **Download** files using their Piece CID
+- 📤 **Upload** files to Filecoin via Synapse with optional encryption
+- 📋 **List** encrypted files from your wallet
+- 🌍 **List Public** files from all users that anyone can decrypt
+- 📥 **Download** files using their Piece CID with automatic decryption
+- 🤝 **Share** encrypted files by granting access to other wallets
+- 🗑️ **Delete** files and revoke access permissions
+- 🔒 **Make Private/Public** toggle file access permissions
 - 💰 **Check balances** (FIL and USDFC)
 - 💳 **Deposit** USDFC and manage storage allowances
-- 🔐 **Encryption/Decryption** with Lit Protocol v8 and smart contract access control
+- 🔐 **End-to-End Encryption** with Lit Protocol v8 and smart contract access control
 - 🔥 Built with TypeScript for type safety
 
 ## Prerequisites
@@ -27,10 +31,7 @@ A TypeScript Node.js command-line interface for uploading, viewing, and download
 
 ## Installation
 
-1. Clone or create this project:
-```bash
-cd /Users/davidblumenfeld/synapse-cli
-```
+1. Clone or create this project
 
 2. Install dependencies:
 ```bash
@@ -67,7 +68,7 @@ REGISTRY_CONTRACT_ADDRESS=0x8370eE1a51B5F31cc10E2f4d786Ff20198B10BBE
 # Validation contract address for permission checking
 VALIDATION_CONTRACT_ADDRESS=0x35ADB6b999AbcD5C9CdF2262c7190C7b96ABcE4C
 
-# ZeroDev bundler RPC URL for account abstraction
+# ZeroDev bundler RPC URL for account abstraction (NOTE: you can use any account abstraction bundler like Pimlico, Coinbase, etc)
 BUNDLER_RPC_URL=https://rpc.zerodev.app/api/v3/YOUR_PROJECT_ID/chain/84532
 ```
 
@@ -131,27 +132,30 @@ Upload a file to Filecoin with optional encryption:
 # Basic upload (unencrypted):
 npm run upload -- ./myfile.pdf
 
-# Upload with encryption (using Lit Protocol):
+# Upload with encryption (private by default):
 npm run upload -- ./myfile.pdf --encrypt
+
+# Upload with encryption (public - anyone can decrypt):
+npm run upload -- ./myfile.pdf --encrypt --public
 
 # Skip payment validation (if already funded):
 npm run upload -- ./myfile.pdf --skip-payment-check
 
 # Combined options:
-npm run upload -- ./myfile.pdf --encrypt --skip-payment-check
+npm run upload -- ./myfile.pdf --encrypt --public --skip-payment-check
 
 # Direct commands:
 tsx src/commands/upload.ts ./myfile.pdf
-tsx src/commands/upload.ts ./myfile.pdf --encrypt
+tsx src/commands/upload.ts ./myfile.pdf --encrypt --public
 ```
 
 ### List Files
-View all your uploaded files:
+View encrypted files from your wallet:
 ```bash
-# Basic list (shows dataset info only):
+# List your encrypted files:
 npm run list
 
-# Detailed list (includes file pieces and provider info):
+# Detailed list with metadata:
 npm run list -- --detailed
 
 # Direct commands:
@@ -159,8 +163,27 @@ tsx src/commands/list.ts
 tsx src/commands/list.ts --detailed
 ```
 
+### List Public Files
+Discover public files from all users:
+```bash
+# List all public files:
+npm run list-public
+
+# With detailed metadata:
+npm run list-public -- --detailed
+
+# Limit number of files:
+npm run list-public -- --limit 100
+
+# Use custom API endpoint:
+npm run list-public -- --api-url http://localhost:3000
+
+# Direct command:
+tsx src/commands/list-public.ts --detailed
+```
+
 ### Download a File
-Download a file using its Piece CID (automatically decrypts if encrypted):
+Download a file using its Piece CID:
 ```bash
 # Basic download (saves with original filename):
 npm run download -- baga6ea4seaqabc123...
@@ -171,6 +194,29 @@ npm run download -- baga6ea4seaqabc123... --output ./downloads/myfile.pdf
 # Direct commands:
 tsx src/commands/download.ts baga6ea4seaqabc123...
 tsx src/commands/download.ts baga6ea4seaqabc123... -o ./myfile.pdf
+```
+
+### Share Access
+Grant access to encrypted files by minting NFTs to recipients:
+```bash
+# Share file access with another wallet:
+npm run share -- <piece-cid> <recipient-address>
+
+# With debug output:
+npm run share -- <piece-cid> <recipient-address> --debug
+
+# Direct command:
+tsx src/commands/share.ts baga6ea4seaq... 0x123...
+```
+
+### Delete Files
+Remove files and revoke all access permissions (NOTE: the file is not removed from storage, but permissions are revoked so the file is no longer decryptable, even if it's a public file):
+```bash
+# Delete a file by piece CID:
+npm run delete -- <piece-cid>
+
+# Direct command:
+tsx src/commands/delete.ts baga6ea4seaq...
 ```
 
 ### Encryption/Decryption Features
@@ -184,9 +230,9 @@ The CLI supports end-to-end encryption using Lit Protocol v8 with smart contract
 - **Transparent Process**: Encryption status is shown in upload/download summaries
 
 **How it works:**
-1. When uploading with `--encrypt`, the CLI encrypts your file using Lit Protocol
+1. When uploading with, the CLI encrypts your file using Lit Protocol. If you upload the file as public, the file is still encrypted but any wallet can decrypt it. 
 2. A smart contract is deployed to manage permissions for the encrypted file
-3. An NFT is minted to the file owner for access control
+3. If the file is uploaded as "private", an NFT is minted to the file owner for access control
 4. The encrypted file is uploaded to Filecoin storage
 5. When downloading, the CLI automatically detects encrypted files and decrypts them
 6. Access is verified via the smart contract before decryption is allowed
@@ -212,13 +258,19 @@ synapse-cli/
 ├── src/                # TypeScript source files
 │   ├── commands/       # CLI commands
 │   │   ├── upload.ts   # Upload files (with encryption support)
-│   │   ├── list.ts     # List datasets
+│   │   ├── list.ts     # List your encrypted files
+│   │   ├── list-public.ts # List all public files
 │   │   ├── download.ts # Download files (with decryption support)
+│   │   ├── share.ts    # Share file access via NFT minting
+│   │   ├── delete.ts   # Delete files and revoke permissions
+│   │   ├── make-public.ts # Make files publicly accessible
+│   │   ├── make-private.ts # Restrict file access
 │   │   ├── balance.ts  # Check balances
 │   │   └── deposit.ts  # Deposit funds
 │   ├── utils/
 │   │   ├── synapse.ts  # Synapse SDK wrapper
 │   │   ├── keypo.ts    # Lit Protocol encryption/decryption utilities
+│   │   ├── list.ts     # API client for querying encrypted files
 │   │   ├── contracts.ts # Smart contract ABIs
 │   │   ├── getKernelClient.ts # ZeroDev account abstraction client
 │   │   ├── deployPermissionedData.ts # Permission contract deployment
@@ -231,7 +283,8 @@ synapse-cli/
 ├── .env                # Environment variables
 ├── tsconfig.json       # TypeScript configuration
 ├── package.json        # Dependencies
-└── README.md          # This file
+├── README.md           # This file
+└── LOCAL_API_SERVER.md # Documentation for running your own API server
 ```
 
 ## Development
@@ -248,6 +301,42 @@ npm run clean          # Clean dist directory
 npm run dev            # Run main CLI in development
 tsx src/commands/upload.ts <file>    # Run specific command
 ```
+
+## Keypo API Integration
+
+The CLI uses the Keypo API (api.keypo.io) to index and query encrypted files uploaded using Keypo's smart contracts. This API provides GraphQL-based access to file metadata, ownership, and access control information.
+
+### Default API Endpoint
+By default, the CLI uses the hosted Keypo API at `https://api.keypo.io` for querying encrypted files.
+
+### Running Your Own Local API Server
+
+You can run your own local implementation of the Keypo API for enhanced privacy, control, or custom features. The complete server implementation is documented in `LOCAL_API_SERVER.md`.
+
+**Quick Setup:**
+1. Follow the instructions in `LOCAL_API_SERVER.md` to set up your local server
+2. Configure The Graph Protocol credentials in your API server's `.env`
+3. Run the server: `npm run dev` (default: http://localhost:3000)
+4. Use with CLI commands:
+   ```bash
+   # Use local API for list commands
+   npm run list -- --api-url http://localhost:3000
+   npm run list-public -- --api-url http://localhost:3000
+   ```
+
+**Benefits of Running Your Own API:**
+- Complete control over data indexing and querying
+- Custom filtering and search capabilities
+- Enhanced privacy - no external API dependencies
+- Ability to add custom endpoints for your specific needs
+- Direct integration with The Graph Protocol
+
+### API Features
+The Keypo API provides several endpoints for querying encrypted files:
+- **filesByOwner**: Get files owned by a specific address (or all files)
+- **filesByMinter**: Get files where an address has been granted access
+- **fileMetadata**: Get detailed metadata for a specific file
+- **isDeleted**: Check if files have been deleted
 
 ## Lit Protocol Integration
 
