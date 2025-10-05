@@ -46,6 +46,7 @@ program
       
       // Fetch files without specifying fileOwnerAddress to get all files
       const allFiles: Record<string, FileData> = {};
+      const deletedFileIds = new Set<string>(); // Track all deleted file IDs
       let skip = 0;
       const batchSize = 100; // Fetch 100 at a time
       let hasMore = true;
@@ -68,8 +69,18 @@ program
             break;
           }
           
+          // Collect deleted file IDs
+          for (const deleted of permissionedFileDeleteds) {
+            deletedFileIds.add(deleted.fileIdentifier);
+          }
+          
           // Process deployed files
           for (const file of permissionedFileDeployeds) {
+            // Skip if this file has been deleted
+            if (deletedFileIds.has(file.fileIdentifier)) {
+              continue;
+            }
+            
             try {
               const metadata = JSON.parse(file.fileMetadata || '{}');
               
@@ -92,11 +103,6 @@ program
             }
           }
           
-          // Remove deleted files
-          for (const deleted of permissionedFileDeleteds) {
-            delete allFiles[deleted.fileIdentifier];
-          }
-          
           skip += currentBatch;
           spinner.text = `Fetched ${skip} files...`;
         } catch (error) {
@@ -104,6 +110,11 @@ program
           console.error(error);
           break;
         }
+      }
+      
+      // Final cleanup: remove any files that were marked as deleted
+      for (const deletedId of deletedFileIds) {
+        delete allFiles[deletedId];
       }
       
       spinner.succeed(`Fetched ${Object.keys(allFiles).length} total files`);
